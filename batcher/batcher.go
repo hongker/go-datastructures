@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+实现缓存队列，支持按时间、数量、大小从队列里取数据
+*/
 package batcher
 
 import (
@@ -24,6 +27,7 @@ import (
 // I honestly can't believe I'm doing this, but go's sync package doesn't
 // have a TryLock function.
 // Could probably do this with atomics
+// 利用channel实现TryLock方法，不阻塞的加锁操作
 type mutex struct {
 	// This is really more of a semaphore design, but eh
 	// Full -> locked, empty -> unlocked
@@ -54,18 +58,22 @@ func (m *mutex) TryLock() bool {
 // Batcher provides an API for accumulating items into a batch for processing.
 type Batcher interface {
 	// Put adds items to the batcher.
+	// 数据入列
 	Put(interface{}) error
 
 	// Get retrieves a batch from the batcher. This call will block until
 	// one of the conditions for a "complete" batch is reached.
+	// 数据出列
 	Get() ([]interface{}, error)
 
 	// Flush forcibly completes the batch currently being built
+	// 更新缓冲区
 	Flush() error
 
 	// Dispose will dispose of the batcher. Any calls to Put or Flush
 	// will return ErrDisposed, calls to Get will return an error iff
 	// there are no more ready batches.
+	// 关闭队列
 	Dispose()
 
 	// IsDisposed will determine if the batcher is disposed
@@ -102,6 +110,7 @@ type basicBatcher struct {
 // item is returned before the second, whether before the second in the same
 // batch, or in an earlier batch.
 func New(maxTime time.Duration, maxItems, maxBytes, queueLen uint, calculate CalculateBytes) (Batcher, error) {
+	// 按字节长度取数据时，必须提供计算长度的方法
 	if maxBytes > 0 && calculate == nil {
 		return nil, errors.New("batcher: must provide CalculateBytes function")
 	}
@@ -118,15 +127,17 @@ func New(maxTime time.Duration, maxItems, maxBytes, queueLen uint, calculate Cal
 }
 
 // Put adds items to the batcher.
+// 往队列里加入一条数据
 func (b *basicBatcher) Put(item interface{}) error {
 	b.lock.Lock()
-	if b.disposed {
+	if b.disposed { // 判断队列是否可用
 		b.lock.Unlock()
 		return ErrDisposed
 	}
 
+	// 给当前的数组附加数据
 	b.items = append(b.items, item)
-	if b.calculateBytes != nil {
+	if b.calculateBytes != nil { // 计算总长度
 		b.availableBytes += b.calculateBytes(item)
 	}
 	if b.ready() {
@@ -134,6 +145,7 @@ func (b *basicBatcher) Put(item interface{}) error {
 		// flush calls could be blocked at the same time, in which case
 		// there's no guarantee each batch is placed into the channel in
 		// the proper order
+		// 已经满足条件，将数据存入输出队列，以备get
 		b.flush()
 	}
 
@@ -147,19 +159,21 @@ func (b *basicBatcher) Get() ([]interface{}, error) {
 	// Don't check disposed yet so any items remaining in the queue
 	// will be returned properly.
 
+	// 定时器
 	var timeout <-chan time.Time
 	if b.maxTime > 0 {
 		timeout = time.After(b.maxTime)
 	}
 
 	select {
+	// 从缓冲区里取数据
 	case items, ok := <-b.batchChan:
 		// If there's something on the batch channel, we definitely want that.
 		if !ok {
 			return nil, ErrDisposed
 		}
 		return items, nil
-	case <-timeout:
+	case <-timeout: // 定时器已到
 		// It's possible something was added to the channel after something
 		// was received on the timeout channel, in which case that must
 		// be returned first to satisfy our ordering guarantees.
@@ -184,6 +198,7 @@ func (b *basicBatcher) Get() ([]interface{}, error) {
 				// If that is unsuccessful, nothing was added to the channel,
 				// and the temp buffer can't have changed because of the lock,
 				// so grab that
+				// 直接取当前数据项
 				items := b.items
 				b.items = make([]interface{}, 0, b.maxItems)
 				b.availableBytes = 0
@@ -210,6 +225,7 @@ func (b *basicBatcher) Get() ([]interface{}, error) {
 }
 
 // Flush forcibly completes the batch currently being built
+// 强行将数据输出到缓冲区
 func (b *basicBatcher) Flush() error {
 	// This is the same pattern as a Put
 	b.lock.Lock()
@@ -226,6 +242,7 @@ func (b *basicBatcher) Flush() error {
 // will return ErrDisposed, calls to Get will return an error iff
 // there are no more ready batches. Any items not flushed and retrieved
 // by a Get may or may not be retrievable after calling this.
+// 将队列清空
 func (b *basicBatcher) Dispose() {
 	for {
 		if b.lock.TryLock() {
@@ -263,16 +280,21 @@ func (b *basicBatcher) IsDisposed() bool {
 
 // flush adds the batch currently being built to the queue of completed batches.
 // flush is not threadsafe, so should be synchronized externally.
+// flush 将数组输出到缓冲区
 func (b *basicBatcher) flush() {
 	b.batchChan <- b.items
+	// 重新初始化
 	b.items = make([]interface{}, 0, b.maxItems)
 	b.availableBytes = 0
 }
 
+// ready 判断是否已经满足出列的条件
 func (b *basicBatcher) ready() bool {
+	// 按数量判断
 	if b.maxItems != 0 && uint(len(b.items)) >= b.maxItems {
 		return true
 	}
+	// 按字节数判断
 	if b.maxBytes != 0 && b.availableBytes >= b.maxBytes {
 		return true
 	}
