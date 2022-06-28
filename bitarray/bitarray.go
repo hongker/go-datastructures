@@ -83,11 +83,12 @@ func (ba *bitArray) ToNums() []uint64 {
 
 // SetBit sets a bit at the given index to true.
 func (ba *bitArray) SetBit(k uint64) error {
+	// 判断是否已超过bitarray的容量
 	if k >= ba.Capacity() {
 		return OutOfRangeError(k)
 	}
 
-	if !ba.anyset {
+	if !ba.anyset { // 初始化
 		ba.lowest = k
 		ba.highest = k
 		ba.anyset = true
@@ -99,6 +100,7 @@ func (ba *bitArray) SetBit(k uint64) error {
 		}
 	}
 
+	// 分块存储
 	i, pos := getIndexAndRemainder(k)
 	ba.blocks[i] = ba.blocks[i].insert(pos)
 	return nil
@@ -112,6 +114,7 @@ func (ba *bitArray) GetBit(k uint64) (bool, error) {
 	}
 
 	i, pos := getIndexAndRemainder(k)
+
 	result := ba.blocks[i]&block(1<<pos) != 0
 	return result, nil
 }
@@ -283,16 +286,19 @@ func (ba *bitArray) copy() BitArray {
 // separate private constructor so unit tests don't have to constantly cast the
 // BitArray interface to the concrete type.
 func newBitArray(size uint64, args ...bool) *bitArray {
+	// 根据大小分配数组长度
 	i, r := getIndexAndRemainder(size)
-	if r > 0 {
+	if r > 0 { // 当余数大于0时，需要多分配一个数组
 		i++
 	}
 
+	// 初始化
 	ba := &bitArray{
 		blocks: make([]block, i),
 		anyset: false,
 	}
 
+	// 是否将bitarray初始化为全部为1
 	if len(args) > 0 && args[0] == true {
 		for i := uint64(0); i < uint64(len(ba.blocks)); i++ {
 			ba.blocks[i] = maximumBlock

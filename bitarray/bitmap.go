@@ -32,28 +32,48 @@ package bitarray
 type Bitmap32 uint32
 
 // SetBit returns a Bitmap32 with the bit at the given position set to 1
+// 将指定位置设为1
 func (b Bitmap32) SetBit(pos uint) Bitmap32 {
+	// 精妙
+	// 1.根据位移运算，得到一个指定位置为1的数字，比如pos为4,则得到的是 0001 0000
+	// 2.通过按位异或运算将值设置上去
 	return b | (1 << pos)
 }
 
 // ClearBit returns a Bitmap32 with the bit at the given position set to 0
+// 将指定位置设为0
 func (b Bitmap32) ClearBit(pos uint) Bitmap32 {
+	// 1.位移运算得到指定位置为1的数字，如：0001 0000
+	// 2.取反,如：1110 1111
+	// 3.按位与,如b为 0011 0000,最终结果为: 0010 0000
 	return b & ^(1 << pos)
 }
 
 // GetBit returns true if the bit at the given position in the Bitmap32 is 1
+// 查看指定位置的值是否为1
 func (b Bitmap32) GetBit(pos uint) bool {
+	// 1.位移运算得到指定位置为1的数字，如：0001 0000
+	// 2.按位与,如b为 0011 0000,得到结果为：0001 0000
+	// 3.只要结果不为0,则证明该位上的值为1
 	return (b & (1 << pos)) != 0
 }
 
 // PopCount returns the amount of bits set to 1 in the Bitmap32
+// 查看值位1的数量
 func (b Bitmap32) PopCount() int {
 	// http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+	// 将b的二进制分为16等份，计算每个部分含1的个数。
+	// 等同于：b = (b & 0x55555555) + ((b >> 1) & 0x55555555);
+	// 示例：10 11 10 01 00 11 10 11 00 01 10 01 10 00 01 00
+	// 经过运算：01 10 01 01 00 10 01 10 00 01 01 01 01 00 01 00
 	b -= (b >> 1) & 0x55555555
+
+	// 后面的计算就是一步步地将每部分的值加起来
+	// 第1部分+第2部分，第3部分+第4部分，...第15部分+第16部分
+	// 经过运算：0011  0010  0010  0011  0001  0010  0001  0001
 	b = (b>>2)&0x33333333 + b&0x33333333
-	b += b >> 4
-	b &= 0x0f0f0f0f
-	b *= 0x01010101
+	// 以下是精简后的运算，等同于上述操作
+	b = ((b + (b>>4)&0xF0F0F0F) * 0x1010101)
 	return int(byte(b >> 24))
 }
 

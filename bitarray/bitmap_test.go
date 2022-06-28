@@ -27,6 +27,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package bitarray
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -71,6 +72,10 @@ func TestBitmap32_ClearBit(t *testing.T) {
 func TestBitmap32_zGetBit(t *testing.T) {
 	m := Bitmap32(0x55555555)
 	assert.Equal(t, true, m.GetBit(2))
+}
+
+func TestMoveBit(t *testing.T) {
+	fmt.Println(1 << 10)
 }
 
 func TestBitmap64_SetBit(t *testing.T) {

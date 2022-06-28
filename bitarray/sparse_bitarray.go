@@ -44,17 +44,20 @@ func (u uintSlice) search(x uint64) int64 {
 }
 
 func (u *uintSlice) insert(x uint64) (int64, bool) {
+	// 根据数据搜索到x所在位置
 	i := u.search(x)
 
-	if i == int64(len(*u)) {
+	if i == int64(len(*u)) { // 数据不存在时，添加到数组
 		*u = append(*u, x)
 		return i, true
 	}
 
+	// 已存在该数据
 	if (*u)[i] == x {
 		return i, false
 	}
 
+	// 不存在该数据，执行插入逻辑
 	*u = append(*u, 0)
 	copy((*u)[i+1:], (*u)[i:])
 	(*u)[i] = x
