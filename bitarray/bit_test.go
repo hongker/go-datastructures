@@ -3,6 +3,7 @@ package bitarray
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"runtime"
 	"testing"
 )
 
@@ -25,17 +26,27 @@ func TestPrintln(t *testing.T) {
 	fmt.Println(getIndexAndRemainder(1000))
 }
 
-func TestBitmapArray(t *testing.T) {
-	ba := NewBitmapArray(1000)
-	assert.True(t, ba.Empty())
+func GetMem() uint64 {
+	var memStat runtime.MemStats
+	runtime.ReadMemStats(&memStat)
+	return memStat.Sys
+}
 
-	for i := 0; i < 100; i++ {
-		if err := ba.Set(uint64(i)); err != nil {
-			t.Fatal(err)
+func TestBitmapArray(t *testing.T) {
+	before := GetMem()
+	items := make([]*BitmapArray, 20)
+	for j := 0; j < 20; j++ {
+		n := uint64(1000000)
+		ba := NewBitmapArray(n)
+		assert.True(t, ba.Empty())
+
+		for i := uint64(0); i < n; i++ {
+			ba.Set(i)
 		}
+		items[j] = ba
 	}
 
-	assert.False(t, ba.Empty())
-	fmt.Println(ba.ToNums())
-	assert.Equal(t, 100, int(ba.Count()))
+	after := GetMem()
+	fmt.Printf("before:%d, after:%d, memory usage: %.3f K\n", before, after, float64(after-before)/1024)
+
 }
