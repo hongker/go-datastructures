@@ -51,8 +51,16 @@ type BTree interface {
 	Delete(item Item) Item
 }
 
+// btree 根据度实现的,degree>=2,比如degree设为3时，树的度最大为3,也就是最多3个子树，元素个数 n满足： 2<= n <= 5
+// 度与阶的区别： 树是按阶数来构建的，度数是树构建之后才得到的。
+// 比如3阶btree:
+//      5, 9
+//     / \   \
+//   1,3  6,8  10
+// 这个3阶数的度为2
+// 阶和度都是用于控制btree的元素个数以及子树的上下界
 type btree struct {
-	degree uint  //树的度
+	degree uint  // 树的最大度
 	root   *node // 根节点
 }
 

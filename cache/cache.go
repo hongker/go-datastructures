@@ -130,6 +130,8 @@ func (c *cache) Put(key string, item Item) {
 	cached := &cached{item: item}
 	cached.setElementIfNotNil(c.recordAdd(key))
 	cached.setElementIfNotNil(c.recordAccess(key))
+
+	// 将元素写入数组
 	c.items[key] = cached
 	c.size += item.Size()
 }

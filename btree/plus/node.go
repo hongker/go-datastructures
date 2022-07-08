@@ -21,15 +21,17 @@ func split(tree *btree, parent, child node) node {
 		return parent
 	}
 
+	// 分裂节点，得到中间元素和左右子树
 	key, left, right := child.split()
-	if parent == nil {
+	if parent == nil { // 对于根节点，直接分裂成一个二叉树
 		in := newInternalNode(tree.nodeSize)
-		in.keys = append(in.keys, key)
+		in.keys = append(in.keys, key) // 设置父节点的索引值
 		in.nodes = append(in.nodes, left)
 		in.nodes = append(in.nodes, right)
 		return in
 	}
 
+	// 非根节点就可以根据parent节点来处理
 	p := parent.(*inode)
 	i := p.search(key)
 	// we want to ensure if the children are leaves we set
@@ -78,8 +80,8 @@ func (ns nodes) splitAt(i int) (nodes, nodes) {
 }
 
 type inode struct {
-	keys  keys
-	nodes nodes
+	keys  keys  // 元素
+	nodes nodes // 子树
 }
 
 func (node *inode) search(key Key) int {
@@ -87,6 +89,7 @@ func (node *inode) search(key Key) int {
 }
 
 func (node *inode) find(key Key) *iterator {
+	// 非叶子节点的遍历，得先通过递归算法找到对应的叶子节点
 	i := node.search(key)
 	if i == len(node.keys) {
 		return node.nodes[len(node.nodes)-1].find(key)
@@ -102,10 +105,11 @@ func (node *inode) find(key Key) *iterator {
 }
 
 func (n *inode) insert(tree *btree, key Key) bool {
+	// 由于非叶子节点的元素=子节点的最大元素，故找到元素的位置=找到目标子节点的位置
 	i := n.search(key)
 	var child node
 	if i == len(n.keys) { // we want the last child node in this case
-		child = n.nodes[len(n.nodes)-1]
+		child = n.nodes[len(n.nodes)-1] // 当目标元素大于节点的最大元素，此刻就需要将数据插入到最后一个子节点
 	} else {
 		match := n.keys[i]
 		switch match.Compare(key) {
@@ -116,11 +120,13 @@ func (n *inode) insert(tree *btree, key Key) bool {
 		}
 	}
 
+	// 如果child依然是非叶子节点，则继续地柜，直到为叶子节点
 	result := child.insert(tree, key)
 	if !result { // no change of state occurred
 		return result
 	}
 
+	// 插入数据后，需要检查是否需要分裂叶子节点
 	if child.needsSplit(tree.nodeSize) {
 		split(tree, n, child)
 	}
@@ -161,26 +167,30 @@ func newInternalNode(size uint64) *inode {
 	}
 }
 
+// lnode 叶子节点
 type lnode struct {
 	// points to the left leaf node is there is one
-	pointer *lnode
-	keys    keys
+	pointer *lnode // 链表式指针，指向下一条数据，用于快速范围查找
+	keys    keys   // 元素数组
 }
 
 func (node *lnode) search(key Key) int {
 	return node.keys.search(key)
 }
 
+// insert 给叶子节点插入元素
 func (lnode *lnode) insert(tree *btree, key Key) bool {
+	// 查找合适的插入位置
 	i := keySearch(lnode.keys, key)
 	var inserted bool
-	if i == len(lnode.keys) { // simple append will do
+	if i == len(lnode.keys) { // 数组为空或者目标元素最大
 		lnode.keys = append(lnode.keys, key)
 		inserted = true
 	} else {
+		// 判断元素是否已存在，存在就替换，否则就插入
 		if lnode.keys[i].Compare(key) == 0 {
 			lnode.keys[i] = key
-		} else {
+		} else { // insert key at position
 			lnode.keys.insertAt(i, key)
 			inserted = true
 		}
@@ -194,18 +204,21 @@ func (lnode *lnode) insert(tree *btree, key Key) bool {
 }
 
 func (node *lnode) find(key Key) *iterator {
+	// 根据key查找到对应的位置
 	i := node.search(key)
-	if i == len(node.keys) {
-		if node.pointer == nil {
+	if i == len(node.keys) { // 如果元素不存在
+		if node.pointer == nil { // 且没有更后的节点来查询
 			return nilIterator()
 		}
 
+		// 后面还有节点可以遍历
 		return &iterator{
 			node:  node.pointer,
 			index: -1,
 		}
 	}
 
+	// 元素就在当前节点里
 	iter := &iterator{
 		node:  node,
 		index: i - 1,
@@ -217,7 +230,7 @@ func (node *lnode) split() (Key, node, node) {
 	if len(node.keys) < 2 {
 		return nil, nil, nil
 	}
-	i := len(node.keys) / 2
+	i := len(node.keys) / 2 // 取中间一个元素
 	key := node.keys[i]
 	otherKeys := make(keys, i, cap(node.keys))
 	ourKeys := make(keys, len(node.keys)-i, cap(node.keys))
@@ -229,9 +242,10 @@ func (node *lnode) split() (Key, node, node) {
 
 	// this should release the original array for GC
 	node.keys = ourKeys
+	// 左子树
 	otherNode := &lnode{
 		keys:    otherKeys,
-		pointer: node,
+		pointer: node, // 形成链表
 	}
 	return key, otherNode, node
 }

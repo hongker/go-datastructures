@@ -24,11 +24,13 @@ type iterator struct {
 }
 
 func (iter *iterator) Next() bool {
+	// 判断是否已遍历完全
 	if iter.index == iteratorExhausted {
 		return false
 	}
 
 	iter.index++
+	// 遍历次数大于元素个数，则去下一个节点遍历
 	if iter.index >= len(iter.node.keys) {
 		iter.node = iter.node.pointer
 		if iter.node == nil {

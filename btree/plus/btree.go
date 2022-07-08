@@ -33,6 +33,7 @@ BenchmarkGet-8	 			3000000	       		627 ns/op
 */
 package plus
 
+// keySearch 通过二分查找法查找key的位置
 func keySearch(keys keys, key Key) int {
 	low, high := 0, len(keys)-1
 	var mid int
@@ -51,24 +52,29 @@ func keySearch(keys keys, key Key) int {
 }
 
 type btree struct {
-	root             node
-	nodeSize, number uint64
+	root             node   // 根节点
+	nodeSize, number uint64 // 节点长度(数的阶数)和元素的总数量
 }
 
 func (tree *btree) insert(key Key) {
-	if tree.root == nil {
-		n := newLeafNode(tree.nodeSize)
-		n.insert(tree, key)
-		tree.number = 1
-		return
-	}
+	//if tree.root == nil { // 处理根节点为空的情况
+	//	// 实例化一个叶子节点
+	//	n := newLeafNode(tree.nodeSize)
+	//	n.insert(tree, key)
+	//	tree.number = 1
+	//	//tree.root = n
+	//	return
+	//}
 
+	// 尝试从根节点开始递归插入数据
 	result := tree.root.insert(tree, key)
-	if result {
+	if result { // 插入成功后，数量+1
 		tree.number++
 	}
 
+	// 判断根节点是否满足分裂条件
 	if tree.root.needsSplit(tree.nodeSize) {
+		// 对根节点进行分裂操作
 		tree.root = split(tree, nil, tree.root)
 	}
 }

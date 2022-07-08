@@ -17,6 +17,7 @@ limitations under the License.
 package plus
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 
@@ -50,6 +51,17 @@ func TestTreeInsert2_3_4(t *testing.T) {
 	assert.Len(t, tree.root.(*inode).keys, 2)
 	assert.Len(t, tree.root.(*inode).nodes, 3)
 	assert.IsType(t, &inode{}, tree.root)
+}
+
+func TestTreeInsert(t *testing.T) {
+	tree := newBTree(3)
+	keys := make(keys, 0, 30)
+	nums := []int{1, 4, 6, 8, 11, 13, 17, 21, 25}
+	for _, i := range nums {
+		keys = append(keys, newMockKey(i))
+	}
+	tree.Insert(keys...)
+	fmt.Println(tree)
 }
 
 func TestTreeInsert3_4_5(t *testing.T) {
