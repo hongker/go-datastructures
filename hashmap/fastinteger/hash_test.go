@@ -2,6 +2,7 @@ package fastinteger
 
 import (
 	"encoding/binary"
+	"fmt"
 	"hash/fnv"
 	"math/rand"
 	"testing"
@@ -14,6 +15,7 @@ func TestHash(t *testing.T) {
 	key := uint64(5)
 	h := hash(key)
 
+	fmt.Println(h)
 	assert.NotEqual(t, key, h)
 }
 
