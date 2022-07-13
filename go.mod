@@ -1,6 +1,6 @@
 module github.com/Workiva/go-datastructures
 
-go 1.15
+go 1.18
 
 require (
 	github.com/stretchr/testify v1.7.0
